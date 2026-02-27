@@ -1,4 +1,4 @@
-from programa import menu
+import streamlit as st
+from programa import mostrar_trivia
 
-if __name__ == "__main__":
-    menu()
+mostrar_trivia()
