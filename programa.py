@@ -1,63 +1,77 @@
+import streamlit as st
+import pandas as pd
 import os
 
-def ejecutar_trivia():
-    preguntas = [
-        {"pregunta": "¿Cuál es el país con más copas del mundo de fútbol?", "opciones": ["A) Alemania", "B) Brasil", "C) Argentina"], "respuesta": "B"},
-        {"pregunta": "¿Cuál es el único país del mundo que ocupa todo un continente?", "opciones": ["A) Rusia", "B) Australia", "C) Antártida"], "respuesta": "B"},
-        {"pregunta": "¿Quién pintó la Mona Lisa?", "opciones": ["A) Van Gogh", "B) Picasso", "C) Da Vinci"], "respuesta": "C"},
-        {"pregunta": "¿Cuál es el animal terrestre más rápido?", "opciones": ["A) Guepardo", "B) León", "C) Halcón"], "respuesta": "A"},
-        {"pregunta": "¿En qué año se hundió el Titanic?", "opciones": ["A) 1912", "B) 1905", "C) 1920"], "respuesta": "A"},
-        {"pregunta": "¿Cuál es el elemento más abundante en el universo?", "opciones": ["A) Oxígeno", "B) Helio", "C) Hidrógeno"], "respuesta": "C"},
-    ]
+def cargar_datos():
+    if os.path.exists("puntuaciones.csv"):
+        return pd.read_csv("puntuaciones.csv")
+    return pd.DataFrame(columns=["Nombre", "Puntos"])
 
-    print("--- 🧠 BIENVENIDO A LA SUPER TRIVIA 🧠 ---")
-    nombre = input("Ingresa tu nombre para comenzar: ").strip()
+def guardar_datos(nombre, puntos):
+    df = cargar_datos()
+    nuevo_registro = pd.DataFrame({"Nombre": [nombre], "Puntos": [f"{puntos}/6"]})
+    df = pd.concat([df, nuevo_registro], ignore_index=True)
+    df.to_csv("puntuaciones.csv", index=False)
+
+def mostrar_trivia():
+    st.title("🧠 Super Trivia Interactiva")
     
-    puntos = 0
-    total = len(preguntas)
+    # Inicializar estado del juego
+    if 'paso' not in st.session_state:
+        st.session_state.paso = 'inicio'
+        st.session_state.puntos = 0
+        st.session_state.pregunta_actual = 0
 
-    for i, p in enumerate(preguntas):
-        print(f"\nPregunta {i+1}: {p['pregunta']}")
-        for opcion in p['opciones']:
-            print(opcion)
+    if st.session_state.paso == 'inicio':
+        nombre = st.text_input("Ingresa tu nombre para comenzar:")
+        if st.button("Empezar Juego") and nombre:
+            st.session_state.nombre = nombre
+            st.session_state.paso = 'jugando'
+            st.rerun()
+
+    elif st.session_state.paso == 'jugando':
+        preguntas = [
+            {"p": "¿País con más copas del mundo?", "ops": ["Alemania", "Brasil", "Argentina"], "r": "Brasil"},
+            {"p": "¿Planeta Rojo?", "ops": ["Marte", "Júpiter", "Venus"], "r": "Marte"},
+            {"p": "¿Quién pintó la Mona Lisa?", "ops": ["Van Gogh", "Picasso", "Da Vinci"], "r": "Da Vinci"},
+            {"p": "¿Animal terrestre más rápido?", "ops": ["Guepardo", "León", "Halcón"], "r": "Guepardo"},
+            {"p": "¿Año del hundimiento del Titanic?", "ops": ["1912", "1905", "1920"], "r": "1912"},
+            {"p": "¿Idioma más hablado del mundo?", "ops": ["Inglés", "Chino Mandarín", "Español"], "r": "Chino Mandarín"},
+        ]
+
+        i = st.session_state.pregunta_actual
+        st.subheader(f"Pregunta {i+1}: {preguntas[i]['p']}")
         
-        respuesta_usuario = input("Tu respuesta (A, B o C): ").upper()
+        respuesta = st.radio("Selecciona una opción:", preguntas[i]['ops'], key=f"p{i}")
         
-        if respuesta_usuario == p['respuesta']:
-            print("¡Correcto! ✅")
-            puntos += 1
+        if st.button("Siguiente"):
+            if respuesta == preguntas[i]['r']:
+                st.session_state.puntos += 1
+            
+            if i + 1 < len(preguntas):
+                st.session_state.pregunta_actual += 1
+                st.rerun()
+            else:
+                st.session_state.paso = 'final'
+                guardar_datos(st.session_state.nombre, st.session_state.puntos)
+                st.rerun()
+
+    elif st.session_state.paso == 'final':
+        puntos = st.session_state.puntos
+        st.balloons()
+        st.header(f"¡Terminaste, {st.session_state.nombre}!")
+        st.write(f"Tu puntaje final es: **{puntos}/6**")
+        
+        if puntos >= 3:
+            st.success("¡Felicitaciones! Lo hiciste genial. 🏆")
         else:
-            print(f"Incorrecto ❌. La respuesta era {p['respuesta']}")
+            st.error("No te rindas, sigue intentando. 💪")
 
-    # Lógica de mensajes finales
-    porcentaje = (puntos / total) * 100
-    print("\n" + "="*30)
-    print(f"RESULTADO: {puntos}/{total}")
-    
-    if porcentaje >= 50:
-        print(f"¡Felicitaciones, {nombre}! Lo hiciste genial. 🏆")
-    else:
-        print(f"No te rindas, {nombre}, sigue intentando. 💪")
-    print("="*30)
+        st.subheader("📜 Registro de Participantes")
+        st.table(cargar_datos())
 
-    # Guardar en el registro
-    with open("puntuaciones.txt", "a", encoding="utf-8") as f:
-        f.write(f"Jugador: {nombre} | Puntos: {puntos}/{total}\n")
-
-    mostrar_historial()
-
-def mostrar_historial():
-    print("\n--- 📜 REGISTRO DE PARTICIPANTES ---")
-    if os.path.exists("puntuaciones.txt"):
-        with open("puntuaciones.txt", "r", encoding="utf-8") as f:
-            print(f.read())
-    else:
-        print("Aún no hay registros.")
-
-def menu():
-    while True:
-        ejecutar_trivia()
-        repetir = input("\n¿Quieres volver a jugar? (s/n): ").lower()
-        if repetir != 's':
-            print("¡Gracias por jugar! Adiós.")
-            break
+        if st.button("Reiniciar"):
+            st.session_state.paso = 'inicio'
+            st.session_state.puntos = 0
+            st.session_state.pregunta_actual = 0
+            st.rerun()
